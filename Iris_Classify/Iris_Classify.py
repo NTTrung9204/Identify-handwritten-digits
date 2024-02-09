@@ -1,8 +1,26 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-import tensorflow as tf
-import cv2 
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+def one_hot_encode(num_classes, input_values):
+    """
+    Mã hóa one-hot cho một mảng numpy chứa các giá trị đầu vào.
+
+    Parameters:
+    num_classes (int): Số lượng lớp phân loại.
+    input_values (numpy.ndarray): Mảng numpy chứa các giá trị đầu vào.
+
+    Returns:
+    numpy.ndarray: Mảng numpy biểu diễn mã hóa one-hot của các giá trị đầu vào.
+    """
+    encoded_values = np.zeros((len(input_values), num_classes))  # Tạo mảng kết quả với kích thước phù hợp
+
+    for i, value in enumerate(input_values):
+        encoded_values[i, value] = 1  # Đặt giá trị 1 tại chỉ mục tương ứng với giá trị đầu vào
+
+    return encoded_values
 
 class MultilayerNeuralNetWork:
     def __init__(self, X, Y, Layers = 20, Epoches = 100, BatchSize = 128, LR = 0.001):
@@ -15,10 +33,10 @@ class MultilayerNeuralNetWork:
         self.Initialize()
 
     def Initialize(self):
-        self.W1    = np.random.randn(len(self.X[0]), self.Layers)
-        self.Bias1 = np.random.randn(1, self.Layers)
-        self.W2    = np.random.randn(self.Layers, len(self.Y[0]))
-        self.Bias2 = np.random.randn(1, len(self.Y[0]))
+        self.W1    = np.random.rand(len(self.X[0]), self.Layers) / 10
+        self.Bias1 = np.random.rand(1, self.Layers) / 10
+        self.W2    = np.random.rand(self.Layers, len(self.Y[0])) / 10
+        self.Bias2 = np.random.rand(1, len(self.Y[0])) / 10
 
         self.HistoryCost = []
 
@@ -74,33 +92,30 @@ class MultilayerNeuralNetWork:
     
     def Accuracy(self, XTest, YTest):
         Result = self.Predict(XTest)
-        Accuracy = 0
-        for Index in range(len(YTest)):
-            if Result[Index][YTest[Index]] == max(Result[Index]):
-                Accuracy += 1
-        print("\nAccurate :",Accuracy / len(YTest) * 100)
+        Accuracy = accuracy_score(np.argmax(Result, axis=1), np.argmax(YTest, axis=1))
+        print(f"{100*Accuracy:.2f}")
 
     def ShowCost(self):
         print("\ncost:",self.HistoryCost[-1])
         plt.plot(self.HistoryCost)
         plt.show()
-    
+
+
+
 if __name__ == "__main__":
-    mnist = tf.keras.datasets.mnist
-    (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
-    train_images = train_images.reshape(60000, -1)/255
-    train_labels = train_labels.reshape(60000, -1)
-    test_images = test_images.reshape(10000, -1)/255
-    test_labels = test_labels.reshape(10000, -1)
+    df = pd.read_csv('datasets/Iris.csv')
 
-    m = len(train_labels)  # Số hàng của ma trận
-    n = 10  # Số cột của ma trận, cộng 1 để tính cả vị trí 0
+    df['Species'], _ = pd.factorize(df['Species'])
 
-    # Tạo ma trận one-hot
-    test_labels_onehot = np.zeros((m, n))
-    test_labels_onehot[np.arange(m), train_labels.flatten()] = 1
+    X = df.loc[:, ['SepalLengthCm', 'SepalWidthCm', 'PetalLengthCm', 'PetalWidthCm']].values
+    Y = df.loc[:, ['Species']].values
 
-    Model = MultilayerNeuralNetWork(train_images, test_labels_onehot, 100, 100, 256, 0.0001)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=43)
+
+    Y_train = one_hot_encode(3, Y_train)
+    Y_test = one_hot_encode(3, Y_test)
+
+    Model = MultilayerNeuralNetWork(X_train, Y_train, Layers=100, Epoches=100000, BatchSize=16, LR=0.0001)
 
     Model.FitData()
 
@@ -110,19 +125,10 @@ if __name__ == "__main__":
     np.savetxt("Bias2", Model.Bias2)
     Model.ShowCost()
 
-    Model.Accuracy(test_images, test_labels)
-    Model.Accuracy(train_images, train_labels)
+    Model.Accuracy(X_train, Y_train)
+    Model.Accuracy(X_test, Y_test)
 
     # Model.W1     = np.loadtxt("W1")
     # Model.W2     = np.loadtxt("W2")
     # Model.Bias11 = np.loadtxt("Bias1")
     # Model.Bias21 = np.loadtxt("Bias2")
-
-    img = cv2.imread('TestImage.png',0)
-
-    TestImage  = img.reshape(1, -1)
-
-    Result = Model.Predict(TestImage)
-
-    print(Result)
-    print("Result: ", np.argmax(Result))
